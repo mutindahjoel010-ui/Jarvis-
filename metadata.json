@@ -1,0 +1,6 @@
+{
+  "name": "Jarvis",
+  "description": "Smart personal AI assistant with calendar, email, smart home, and optional temporary voice support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

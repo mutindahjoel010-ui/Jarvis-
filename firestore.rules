@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared helper primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // Entity validators
+    function isValidConversation(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 120 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChatMessage(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.role in ['user', 'assistant'] &&
+             data.text is string &&
+             data.text.size() >= 1 &&
+             data.text.size() <= 20000 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidCalendarEvent(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 200)) &&
+             data.startTimeMillis is int &&
+             data.startTimeMillis > 0 &&
+             data.endTimeMillis is int &&
+             data.endTimeMillis >= data.startTimeMillis &&
+             (!('deviceEventId' in data) || (data.deviceEventId is int && data.deviceEventId >= 0)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSmartDevice(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.name is string &&
+             data.name.size() >= 1 &&
+             data.name.size() <= 100 &&
+             (!('room' in data) || (data.room is string && data.room.size() <= 80)) &&
+             data.deviceType in ['light', 'thermostat', 'lock', 'plug', 'fan', 'tv', 'other'] &&
+             data.isOn is bool &&
+             (!('level' in data) || (data.level is int && data.level >= 0 && data.level <= 100)) &&
+             (!('targetTemp' in data) || (data.targetTemp is int && data.targetTemp >= 40 && data.targetTemp <= 100)) &&
+             (!('entityId' in data) || (data.entityId is string && data.entityId.size() <= 120)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId}/conversations/{conversationId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(conversationId);
+      allow create: if isOwner(userId) &&
+                       isValidId(conversationId) &&
+                       incoming().keys().hasAll(['userId', 'title', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'title', 'createdAt', 'updatedAt']) &&
+                       isValidConversation(incoming(), userId);
+      allow update: if isOwner(userId) &&
+                       isValidId(conversationId) &&
+                       isValidConversation(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(conversationId);
+
+      match /messages/{messageId} {
+        allow list: if isOwner(userId) && isValidId(conversationId);
+        allow get: if isOwner(userId) && isValidId(conversationId) && isValidId(messageId);
+        allow create: if isOwner(userId) &&
+                         isValidId(conversationId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll(['userId', 'role', 'text', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'role', 'text', 'createdAt']) &&
+                         isValidChatMessage(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(conversationId) && isValidId(messageId);
+      }
+    }
+
+    match /users/{userId}/calendar_events/{eventId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(eventId);
+      allow create: if isOwner(userId) &&
+                       isValidId(eventId) &&
+                       incoming().keys().hasAll(['userId', 'title', 'startTimeMillis', 'endTimeMillis', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'title', 'description', 'location', 'startTimeMillis', 'endTimeMillis', 'deviceEventId', 'createdAt', 'updatedAt']) &&
+                       isValidCalendarEvent(incoming(), userId);
+      allow update: if isOwner(userId) &&
+                       isValidId(eventId) &&
+                       isValidCalendarEvent(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'location', 'startTimeMillis', 'endTimeMillis', 'deviceEventId', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(eventId);
+    }
+
+    match /users/{userId}/smart_devices/{deviceId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(deviceId);
+      allow create: if isOwner(userId) &&
+                       isValidId(deviceId) &&
+                       incoming().keys().hasAll(['userId', 'name', 'deviceType', 'isOn', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'name', 'room', 'deviceType', 'isOn', 'level', 'targetTemp', 'entityId', 'createdAt', 'updatedAt']) &&
+                       isValidSmartDevice(incoming(), userId);
+      allow update: if isOwner(userId) &&
+                       isValidId(deviceId) &&
+                       isValidSmartDevice(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'room', 'deviceType', 'isOn', 'level', 'targetTemp', 'entityId', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(deviceId);
+    }
+  }
+}

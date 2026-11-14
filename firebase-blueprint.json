@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A chat session between the user and Jarvis.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the conversation owner."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short conversation title."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when conversation was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when conversation was last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "title", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message within a Jarvis conversation.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the message owner."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "description": "Speaker role."
+        },
+        "text": {
+          "type": "string",
+          "description": "Plain-language message content."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when message was created (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "role", "text", "createdAt"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "A user calendar event managed by Jarvis and synced with the device calendar.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the event owner."
+        },
+        "title": {
+          "type": "string",
+          "description": "Event title."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional event notes."
+        },
+        "location": {
+          "type": "string",
+          "description": "Optional event location."
+        },
+        "startTimeMillis": {
+          "type": "integer",
+          "description": "Event start time in UTC epoch milliseconds."
+        },
+        "endTimeMillis": {
+          "type": "integer",
+          "description": "Event end time in UTC epoch milliseconds."
+        },
+        "deviceEventId": {
+          "type": "integer",
+          "description": "Optional Android CalendarContract event ID (0 if cloud-only)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when event was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when event was updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "title", "startTimeMillis", "endTimeMillis", "createdAt", "updatedAt"]
+    },
+    "SmartDevice": {
+      "title": "SmartDevice",
+      "description": "A home smart device managed through Jarvis.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the device owner."
+        },
+        "name": {
+          "type": "string",
+          "description": "Friendly device name such as Living Room Light."
+        },
+        "room": {
+          "type": "string",
+          "description": "Room name where the device is located."
+        },
+        "deviceType": {
+          "type": "string",
+          "enum": ["light", "thermostat", "lock", "plug", "fan", "tv", "other"],
+          "description": "Category of smart device."
+        },
+        "isOn": {
+          "type": "boolean",
+          "description": "Whether the device is currently on or unlocked/active."
+        },
+        "level": {
+          "type": "integer",
+          "description": "Percentage level (0-100) for lights or fans."
+        },
+        "targetTemp": {
+          "type": "integer",
+          "description": "Target temperature in Fahrenheit (40-100) for thermostats."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "Optional Home Assistant entity_id for real hub sync."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when device was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when device was updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "name", "deviceType", "isOn", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "User-owned Jarvis chat conversations."
+    },
+    "/users/{userId}/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User-owned messages inside a Jarvis conversation."
+    },
+    "/users/{userId}/calendar_events/{eventId}": {
+      "schema": { "$ref": "#/entities/CalendarEvent" },
+      "description": "User-owned calendar events."
+    },
+    "/users/{userId}/smart_devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/SmartDevice" },
+      "description": "User-owned smart home devices."
+    }
+  }
+}
